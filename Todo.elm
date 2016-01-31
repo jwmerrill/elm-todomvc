@@ -33,9 +33,13 @@ type alias Model =
     { tasks : List Task
     , field : String
     , uid : Int
-    , visibility : String
+    , visibility : Visibility
     }
 
+type Visibility
+    = All
+    | Active
+    | Completed
 
 type alias Task =
     { description : String
@@ -57,7 +61,7 @@ newTask desc id =
 emptyModel : Model
 emptyModel =
     { tasks = []
-    , visibility = "All"
+    , visibility = All
     , field = ""
     , uid = 0
     }
@@ -78,7 +82,7 @@ type Action
     | DeleteComplete
     | Check Int Bool
     | CheckAll Bool
-    | ChangeVisibility String
+    | ChangeVisibility Visibility
 
 
 -- How we update our Model on a given Action?
@@ -178,13 +182,13 @@ taskEntry address task =
       ]
 
 
-taskList : Address Action -> String -> List Task -> Html
+taskList : Address Action -> Visibility -> List Task -> Html
 taskList address visibility tasks =
     let isVisible todo =
             case visibility of
-              "Completed" -> todo.completed
-              "Active" -> not todo.completed
-              _ -> True
+              Completed -> todo.completed
+              Active -> not todo.completed
+              All -> True
 
         allCompleted = List.all .completed tasks
 
@@ -246,7 +250,7 @@ todoItem address todo =
       ]
 
 
-controls : Address Action -> String -> List Task -> Html
+controls : Address Action -> Visibility -> List Task -> Html
 controls address visibility tasks =
     let tasksCompleted = List.length (List.filter .completed tasks)
         tasksLeft = List.length tasks - tasksCompleted
@@ -263,11 +267,11 @@ controls address visibility tasks =
           ]
       , ul
           [ id "filters" ]
-          [ visibilitySwap address "#/" "All" visibility
+          [ visibilitySwap address "#/" All visibility
           , text " "
-          , visibilitySwap address "#/active" "Active" visibility
+          , visibilitySwap address "#/active" Active visibility
           , text " "
-          , visibilitySwap address "#/completed" "Completed" visibility
+          , visibilitySwap address "#/completed" Completed visibility
           ]
       , button
           [ class "clear-completed"
@@ -279,11 +283,11 @@ controls address visibility tasks =
       ]
 
 
-visibilitySwap : Address Action -> String -> String -> String -> Html
+visibilitySwap : Address Action -> String -> Visibility -> Visibility -> Html
 visibilitySwap address uri visibility actualVisibility =
     li
       [ onClick address (ChangeVisibility visibility) ]
-      [ a [ href uri, classList [("selected", visibility == actualVisibility)] ] [ text visibility ] ]
+      [ a [ href uri, classList [("selected", visibility == actualVisibility)] ] [ text (representVisibility visibility) ] ]
 
 
 infoFooter : Html
@@ -299,6 +303,14 @@ infoFooter =
           , a [ href "http://todomvc.com" ] [ text "TodoMVC" ]
           ]
       ]
+
+
+representVisibility : Visibility -> String
+representVisibility visibility =
+    case visibility of
+        All -> "All"
+        Active -> "Active"
+        Completed -> "Completed"
 
 
 ---- INPUTS ----
@@ -317,7 +329,7 @@ model =
 
 initialModel : Model
 initialModel =
-  Maybe.withDefault emptyModel getStorage
+  emptyModel
 
 
 -- actions from user input
@@ -341,10 +353,3 @@ port focus =
         actions.signal
           |> Signal.filter needsFocus (EditingTask 0 True)
           |> Signal.map toSelector
-
-
--- interactions with localStorage to save the model
-port getStorage : Maybe Model
-
-port setStorage : Signal Model
-port setStorage = model
